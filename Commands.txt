@@ -1,0 +1,426 @@
+                                   ***********
+									Module-2
+									**********
+
+Prerequisites:
+--------------
+
+1: Create Github Account
+=========================
+
+Snow CLI
+--------
+https://www.snowflake.com/en/developers/downloads/snowsql/
+
+
+Github Public Link
+--------------------
+https://github.com/pradeepetl/snowflake
+
+
+Download VS Code
+---------------
+
+Github Repo
+-----------
+
+https://github.com/sparknayak/snowflake
+
+https://github.com/sparknayak/Snowflake-master
+
+2: Configure GitPod
+===================
+
+3:configure github codespace
+
+										************
+										Sub Module-1
+										*************
+										
+Goal: Loading Data in Snowflake
+
+1.SNOWCLI
+2.Snowflake Stages
+3.File Format , Stage and Copy Command
+
+Introductiont_to_stage_obj_creation
+------------------------------------
+create or replace transient database control_db;
+
+create or replace schema external_stages;
+
+create or replace schema internal_stages;
+
+create or replace schema file_formats;
+
+-- Create external stage
+
+create or replace stage control_db.external_stages.my_ext_stage 
+url='s3://snowflakeranjantest/test/'
+credentials=(aws_key_id='AKIA57CP5YUOGFIVRYHL' aws_secret_key='pcN8SYVPJ60X9YXIv2yLmkre+jf8tSB9f8Yk8AYG');
+
+DESC STAGE control_db.external_stages.my_ext_stage;
+
+alter stage control_db.external_stages.my_ext_stage 
+set credentials=(aws_key_id='AKIA57CP5YUOGFIVRYHL' aws_secret_key='pcN8SYVPJ60X9YXIv2yLmkre+jf8tSB9f8Yk8AYG');
+
+-- Create internal stage
+
+create or replace stage control_db.internal_stages.my_int_stage;
+
+DESC STAGE control_db.internal_stages.my_int_stage
+
+-- Create file format
+
+ create or replace file format control_db.file_formats.my_csv_format
+ type = csv 
+ field_delimiter = ',' 
+ skip_header = 1 
+ null_if = ('NULL', 'null') 
+ empty_field_as_null = true 
+ compression = gzip;
+ 
+ desc file format control_db.file_formats.my_csv_format;
+ 
+-- Execute copy command
+
+copy into sales
+from @my_ext_stage
+file_format = (FORMAT_NAME='my_csv_format' error_on_column_count_mismatch=false )
+on_error = 'skip_file';
+
+copy into emp_basic_external 
+from s3://snowflakeranjantest/test/ 
+credentials=(aws_key_id='AKIA57CP5YUOGFIVRYHL' aws_secret_key='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') 
+file_format = (type = csv field_optionally_enclosed_by='"');
+
+copy into emp_basic_local
+from (select metadata$filename, metadata$file_row_number, t.$1 , t.$2 , t.$3 , t.$4 , t.$5 , t.$6 from @emp_basic_local t)
+file_format = (type = csv field_optionally_enclosed_by='"')
+pattern = '.*employees0[1-5].csv.gz'
+on_error = 'skip_file';
+
+
+Lessons Learned
+****************
+
+1. Syntax for createing stage objects.
+2. Syntax for creating file format objects.
+3. Understood differences between both Objects.
+4. Best practices to create stage object and file format object.
+5. High level overview of copy command.
+
+
+
+
+--------------------******************************------------------------------------------
+
+Working with Internal Staging area
+**********************************
+****
+Goal
+****
+1. How to upload data to internal staging area.
+2. Download data from Internal staging area.
+3. Using Named stage and table stage.
+4. Best practices while using internal staging.
+
+
+
+Uploading data using Web console. (emp\employees01)
+----------------------------------------------------
+
+--- Try to execute these commands in the Gitpod-- Please check Module-2 intro for more information
+
+create or replace table demo_db.public.emp_basic_1 (
+         first_name string ,
+         last_name string ,
+         email string ,
+         streetaddress string ,
+         city string ,
+         start_date date
+);
+
+-- Load data to table Scenario-1
+---------------------------------
+Requirement
+-----------
+For migration 
+- They pass you sample files.
+- Load sample files to Snowflake.
+- The file is for only one table.
+
+Steps
+--------
+- Lets use table stage as there is only files for single table.
+- Need to install snowsql as file size is huge.
+- Prepare PUT command.
+- prepare Copy Commad.
+- Need to create file format object.
+
+Load data from Local system to Snowflake
+-----------------------------------------
+
+First delete the data from table demo_db.public.emp_basic_1 as sample data is loaded in previous step.
+
+
+PUT file://C:\Learning2025\Snowflake\Snowflake_Udemy_Pradeep_HC\Snowflake-stages\Data\Employee/employees0*.csv @%emp_basic_1;
+
+put file:///workspace/snowflake/Module-2/Snowflake-stages/Data/Employee/employees0*.csv 
+@demo_db.public.%emp_basic_1;
+
+ls @%emp_basic_1;
+
+select * from demo_db.public.emp_basic_1;
+
+copy into demo_db.public.emp_basic_1
+from @demo_db.public.%emp_basic_1
+file_format = (type = csv field_optionally_enclosed_by='"')
+pattern = '.*employees0[1-5].csv.gz'
+on_error = 'skip_file';
+
+create database control_db;
+create schema file_formats;
+
+create or replace file format control_db.file_formats.my_csv_format1
+type = csv field_optionally_enclosed_by='"' field_delimiter = ',' 
+null_if = ('NULL', 'null') empty_field_as_null = true compression = gzip;
+
+DESC FILE FORMAT control_db.file_formats.my_csv_format1;
+
+copy into demo_db.public.emp_basic_1
+from @demo_db.public.%emp_basic_1
+file_format = control_db.file_formats.my_csv_format1
+pattern = '.*employees0[1-5].csv.gz'
+on_error = 'skip_file';
+
+
+Remove all files from stage after load:
+
+rm  @%emp_basic_1;
+
+ls @%emp_basic_1;
+
+
+-- Load data to table Scenario-2
+---------------------------------
+Requirement
+-----------
+-Copy only first 3 columns from file to Snowflake.
+
+create or replace table demo_db.public.emp_basic_2 (
+         first_name string ,
+         last_name string ,
+         email string 
+);
+
+mistake
+--------
+PUT file://C:\Learning2025\Snowflake\Snowflake_Udemy_Pradeep_HC\Snowflake-stages\Data\Employee/employees0*.csv @%emp_basic_1;
+
+correct
+-------
+PUT file://C:\Learning2025\Snowflake\Snowflake_Udemy_Pradeep_HC\Snowflake-stages\Data\Employee/employees0*.csv @%emp_basic_2;
+
+
+put file:///workspace/snowflake/Module-2/Snowflake-stages/Data/Employee/employees0*.csv @demo_db.public.%emp_basic_2;
+
+Wont Work 
+---------
+copy into demo_db.public.emp_basic_2
+from (select  t.$1 , t.$2 , t.$3 from @demo_db.public.%emp_basic_1 t)
+file_format = control_db.file_formats.my_csv_format
+pattern = '.*employees0[1-5].csv.gz'
+on_error = 'skip_file';
+
+Error:  Access to the stage area of a table (EMP_BASIC_1) with the schema of another table (EMP_BASIC_2) is not allowed.
+
+Works
+------
+copy into demo_db.public.emp_basic_2
+from (select  t.$1 , t.$2 , t.$3 from @demo_db.public.%emp_basic_2 t)
+file_format = control_db.file_formats.my_csv_format
+pattern = '.*employees0[1-5].csv.gz'
+on_error = 'skip_file';
+
+select * from demo_db.public.emp_basic_2 ;
+
+-- Loading data Scenario-3
+Requirement:
+------------
+- Copy all columns to table . 
+- Record the name of the file which you are loading.
+- Compare the count of records.
+
+# Create staging area.
+
+create or replace table demo_db.public.emp_basic_local (
+         file_name string,
+         fie_row_number string,
+         first_name string ,
+         last_name string ,
+         email string ,
+         streetaddress string ,
+         city string ,
+         start_date date
+);
+
+
+# Upload data to stagig area.
+
+PUT file://C:\Learning2025\Snowflake\Snowflake_Udemy_Pradeep_HC\Snowflake-stages\Data\Employee/employees0*.csv @%emp_basic_local;
+
+put file:///workspace/snowflake/Module-2/Snowflake-stages/Data/Employee/employees0*.csv 
+@demo_db.public.%emp_basic_local;
+
+# Copy data from staging area to snowflake.
+
+copy into demo_db.public.emp_basic_local
+from (select metadata$filename, metadata$file_row_number, 
+t.$1 , t.$2 , t.$3 , t.$4 , t.$5 , t.$6 
+      from @demo_db.public.%emp_basic_local t)
+file_format = (type = csv field_optionally_enclosed_by='"')
+pattern = '.*employees0[1-5].csv.gz'
+on_error = 'skip_file';
+
+
+select * from demo_db.public.emp_basic_local;
+select count(*) from @demo_db.public.%emp_basic_local
+ (file_format => control_db.file_formats.my_csv_format)
+
+Note: Syntax change while mentioning the file format while querying from stage.
+Error: Number of columns in file (6) does not match that of the corresponding table (8), use file format option error_on_column_count_mismatch=false to ignore this error
+
+Lets recreate file format.
+
+create or replace file format control_db.file_formats.my_csv_format2
+type = csv field_optionally_enclosed_by='"' field_delimiter = ',' 
+null_if = ('NULL', 'null') empty_field_as_null = true compression = gzip
+error_on_column_count_mismatch=false;
+
+select metadata$filename, metadata$file_row_number,$1 , $2 , $3 , $4 , $5 , $6 
+      from @demo_db.public.%emp_basic_local 
+      (file_format => control_db.file_formats.my_csv_format2)
+
+Validate the values (stage vs table)
+-------------------------------------
+
+select metadata$filename, metadata$file_row_number,$1 , $2 , $3 , $4 , $5 , $6 
+      from @demo_db.public.%emp_basic_local 
+      (file_format => control_db.file_formats.my_csv_format2)
+minus
+select * from demo_db.public.emp_basic_local
+
+
+select count(*) 
+from  (select metadata$filename, metadata$file_row_number,$1 , $2 , $3 , $4 , $5 , $6 
+      from @demo_db.public.%emp_basic_local 
+      (file_format => control_db.file_formats.my_csv_format2  ))
+      
+Remove the stage name from file name
+-------------------------------------
+select split_part(file_name,'/',2) from demo_db.public.emp_basic_local;
+
+Lessons Learned
+****************
+- Copied data with file name.
+- check for column value directly in staging area.
+- Validate Count.
+- Validate values w.r.t table stage.
+
+Download data from Snowflake to Local system
+*********************************************
+
+- Donwload from UI (Constraint : Only limited records can be downloaded(less than 100 mb))
+-
+
+-- Please try to execute these commands from GITPOD. 
+
+-- Unload data Scenario-1
+
+SELECT * FROM demo_db.public.emp_basic_local
+
+copy into @demo_db.public.%emp_basic_local
+from demo_db.public.emp_basic_local
+file_format = (type = csv field_optionally_enclosed_by='"')
+--on_error = 'skip_file';
+
+get @demo_db.public.%emp_basic_local file:///workspace/snowflake/Module-2/Snowflake-stages/Data/Employee/unload/;
+
+-- Unload data Scenario-2
+
+copy into @demo_db.public.%emp_basic_local/test_folder/test_
+from (select first_name, last_name,email from demo_db.public.emp_basic_local)
+file_format = (type = csv field_optionally_enclosed_by='"')
+OVERWRITE=TRUE;
+--on_error = 'skip_file';
+
+-- Load data using named stage.
+********************************
+
+  create or replace table demo_db.public.emp_basic_named_stage 
+ (
+         file_name string,
+         fie_row_number string,
+         first_name string ,
+         last_name string ,
+         email string ,
+         streetaddress string ,
+         city string ,
+         start_date date
+);
+
+
+create or replace stage control_db.internal_stages.my_int_stage
+
+desc stage control_db.internal_stages.my_int_stage
+
+put file:///root/Snowflake/Data/Employee/employees0*.csv @control_db.internal_stages.my_int_stage/emp_basic_named_stage;
+
+TRUNCATE TABLE demo_db.public.emp_basic_local;
+
+copy into demo_db.public.emp_basic_local
+from (select metadata$filename, metadata$file_row_number, t.$1 , t.$2 , t.$3 , t.$4 , t.$5 , t.$6 from @control_db.internal_stages.my_int_stage/emp_basic_named_stage t)
+file_format = (type = csv field_optionally_enclosed_by='"')
+pattern = '.*employees0[1-5].csv.gz'
+on_error = 'skip_file';
+
+TRUNCATE TABLE demo_db.public.emp_basic_named_stage;
+
+copy into demo_db.public.emp_basic_named_stage
+from (select metadata$filename, metadata$file_row_number, t.$1 , t.$2 , t.$3 , t.$4 , t.$5 , t.$6 from @control_db.internal_stages.my_int_stage/emp_basic_named_stage t)
+file_format = (type = csv field_optionally_enclosed_by='"')
+pattern = '.*employees0[1-5].csv.gz'
+on_error = 'skip_file';
+
+select * from demo_db.public.emp_basic_named_stage;
+
+
+
+										************
+										Sub Module-2
+										*************
+
+
+
+
+
+										************
+										Sub Module-3
+										*************
+										
+										
+										
+										
+***********************************************************************************************
+									Module-4
+***********************************************************************************************
+Goal:
+Data governacence and Administration
+
+
+*************
+Data Masking
+*************
+
+
