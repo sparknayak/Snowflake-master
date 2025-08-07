@@ -57,12 +57,12 @@ create or replace schema file_formats;
 
 create or replace stage control_db.external_stages.my_ext_stage 
 url='s3://snowflakeranjantest/test/'
-credentials=(aws_key_id='AKIA57CP5YUOGFIVRYHL' aws_secret_key='pcN8SYVPJ60X9YXIv2yLmkre+jf8tSB9f8Yk8AYG');
+credentials=(aws_key_id='' aws_secret_key='---');
 
 DESC STAGE control_db.external_stages.my_ext_stage;
 
 alter stage control_db.external_stages.my_ext_stage 
-set credentials=(aws_key_id='AKIA57CP5YUOGFIVRYHL' aws_secret_key='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');
+set credentials=(aws_key_id='---' aws_secret_key='---');
 
 -- Create internal stage
 
@@ -91,7 +91,7 @@ on_error = 'skip_file';
 
 copy into emp_basic_external 
 from s3://snowflakeranjantest/test/ 
-credentials=(aws_key_id='AKIA57CP5YUOGFIVRYHL' aws_secret_key='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') 
+credentials=(aws_key_id='---' aws_secret_key='---') 
 file_format = (type = csv field_optionally_enclosed_by='"');
 
 copy into emp_basic_local
@@ -422,5 +422,6 @@ Data governacence and Administration
 *************
 Data Masking
 *************
+
 
 
